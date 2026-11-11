@@ -232,14 +232,16 @@ async function one(raw) {
     select(top.L, top.key, { fly: false });
     return `Yes: ${hits.length.toLocaleString()} aircraft are ${m[1]} ${n.toLocaleString()} ${m[3] || 'feet'}. The ${above ? 'highest' : 'lowest'} is ${top.label} at ${fmtAlt(top.alt).join(' ')}.`;
   }
-  if ((m = t.match(/^how many (.+?)(?: are| is)?(?: there)?(?: currently| right now)? ?(in view|on screen|visible|over|above|in|near|around|within)? ?(.*)$/))) {
-    const kind = KIND.find((k) => k[0].test(m[1]));
+  if (/^how many /.test(t)) {
+    const kind = KIND.find((k) => k[0].test(t));
     if (kind) {
       await ensure(kind[1]);
-      const area = (m[3] || '').replace(/\b(right now|now|currently|today|are there|the view|view)\b/g, '').trim();
-      const fresh = kind[1].map((id) => registry.get(id)).filter((L) => L.status === 'stale').length ? ' That feed is on its last good data.' : '';
-      if (!area || /in view|on screen|visible/.test(m[2] || '')) { const n = kind[1].reduce((a, id) => a + inView(id).length, 0), all = kind[1].reduce((a, id) => a + (registry.get(id).count || 0), 0); return `${n.toLocaleString()} ${kind[2]} in view, of ${all.toLocaleString()} loaded.${fresh}`; }
-      if (/near|around|within/.test(m[2] || '')) { const g = await geocode(area); if (!g) return `I could not place ${area}.`; const n = contacts(kind[1]).filter((x) => distM(g.lat, g.lon, x.lat, x.lon) < 250000).length; return `${n.toLocaleString()} ${kind[2]} within 250 km of ${g.name}.${fresh}`; }
+      const fresh = kind[1].map((id) => registry.get(id)).some((L) => L.status === 'stale') ? ' That feed is on its last good data.' : '';
+      const clean = (x) => x.replace(/\b(right now|now|currently|today|at the moment|are there|there)\b/g, '').trim();
+      const near = t.match(/\b(?:near|around|within reach of|close to)\s+(.+)$/), over = t.match(/\b(?:over|above|in|inside|across)\s+(.+)$/);
+      if (/\b(in view|on screen|visible|in the view|on the map)\b/.test(t) || (!near && !over)) { const n = kind[1].reduce((a, id) => a + inView(id).length, 0), all = kind[1].reduce((a, id) => a + (registry.get(id).count || 0), 0); return `${n.toLocaleString()} ${kind[2]} in view, of ${all.toLocaleString()} loaded.${fresh}`; }
+      if (near) { const g = await geocode(clean(near[1])); if (!g) return `I could not place ${clean(near[1])}.`; const n = contacts(kind[1]).filter((x) => distM(g.lat, g.lon, x.lat, x.lon) < 250000).length; return `${n.toLocaleString()} ${kind[2]} within 250 km of ${g.name}.${fresh}`; }
+      const area = clean(over[1]);
       const b = await boundary(area).catch(() => null);
       if (!b) return `I could not find an area called ${area}.`;
       const n = contacts(kind[1]).filter((x) => x.lat >= b.bbox.s && x.lat <= b.bbox.n && x.lon >= b.bbox.w && x.lon <= b.bbox.e && (!b.geojson || inPoly(x.lat, x.lon, b.geojson))).length;

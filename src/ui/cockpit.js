@@ -118,6 +118,7 @@ function enter() {
     </div>
     <button class="ck-radar surface" aria-label="Contacts within 250 kilometres"><canvas></canvas></button>`;
   set('cockpit', true);
+  document.body.classList.add('in-cockpit');
   tick = scene.preUpdate.addEventListener(frame);
   uiTimer = setInterval(drawUi, 90);
   drawUi();
@@ -128,6 +129,7 @@ function exit(msg) {
   tick?.(); tick = null; clearInterval(uiTimer);
   root.hidden = true; root.innerHTML = '';
   scene.screenSpaceCameraController.enableInputs = true;
+  document.body.classList.remove('in-cockpit');
   set('cockpit', false);
   if (msg) toast(msg);
   const info = currentInfo();

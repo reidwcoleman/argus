@@ -191,6 +191,8 @@ function unzipFirst(buf) {
   return method === 0 ? data : zlib.inflateRawSync(data);
 }
 const CAMEO = { 14: 'Protest', 18: 'Assault', 19: 'Armed clash', 20: 'Mass violence' };
+const CONFLICT_WORDS = /\b(attack|kill|dead|death|deadly|dies|strike|airstrike|bomb|shoot|shot|war|missile|drone|troops|army|military|clash|protest|riot|explo|blast|militant|rebel|hostage|soldier|gunm|shell|raid|violen|massacre|ambush|terror|insurg|coup|wounded|injur|stabb|assault|murder|unrest|demonstrat|rally|ceasefire|offensive|militia|sniper|kidnap|abduct|frontline|invasion|siege|rocket|gunfire|casualt)/i;
+const VIOLENT = new Set([145, 180, 181, 182, 183, 185, 186, 193, 194, 195, 200, 201, 202, 203, 204]);
 function titleFromUrl(u) {
   try {
     const p = new URL(u);
@@ -222,13 +224,19 @@ async function news() {
       for (const line of text.split('\n')) {
         const c = line.split('\t');
         if (c.length < 61) continue;
-        const root = +c[28];
+        const root = +c[28], base = +c[27];
         if (!CAMEO[root]) continue;
+        // "Fight" and "protest" verbs are often metaphorical in news text: keep the physically specific codes,
+        // and generic ones only when several articles agree.
+        if (!VIOLENT.has(base) && +c[33] < 4) continue;
         const lat = +c[56], lon = +c[57], url = c[60];
         if (!c[56] || !c[57] || !Number.isFinite(lat) || !Number.isFinite(lon) || !url) continue;
         if (newsStore.items.has(url)) continue;
+        // The event coder misreads business and sports "fights" as violence, so the headline itself has to agree.
+        const headline = titleFromUrl(url);
+        if (!CONFLICT_WORDS.test(headline) && !(/[^\x00-\x7f]/.test(headline) && +c[33] >= 6 && VIOLENT.has(base))) continue;
         let host = ''; try { host = new URL(url).hostname.replace(/^www\./, ''); } catch { /* ignore */ }
-        newsStore.items.set(url, { id: c[0], kind: CAMEO[root], root, lat: +lat.toFixed(3), lon: +lon.toFixed(3), place: c[52], cc: c[53], mentions: +c[31] || 1, tone: +(+c[34] || 0).toFixed(1), title: titleFromUrl(url), host, url, t });
+        newsStore.items.set(url, { id: c[0], kind: CAMEO[root], root, lat: +lat.toFixed(3), lon: +lon.toFixed(3), place: c[52], cc: c[53], mentions: +c[31] || 1, tone: +(+c[34] || 0).toFixed(1), title: headline, host, url, t });
       }
       newsStore.files.add(s);
     } catch { /* a missing 15-minute file is fine */ }

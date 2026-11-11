@@ -10,7 +10,7 @@ export const STYLES = [
   { id: 'noir', name: 'Noir', tip: 'High-contrast monochrome', swatch: 'linear-gradient(135deg,#f2f2f2,#6b6b6b 50%,#0b0b0b)' },
   { id: 'cel', name: 'Cel', tip: 'Inked, posterised', swatch: 'linear-gradient(135deg,#ffd166 0 33%,#ef476f 33% 66%,#26547c 66%)' },
 ];
-export const HUD_TINT = { normal: '#d9f7c4', crt: '#9dffe6', nvg: '#c6ffb0', flir: '#ffe9c2', noir: '#f2f2f2', cel: '#fff3d6' };
+export const HUD_TINT = { normal: '#d9f7c4', crt: '#9dffe6', nvg: '#c6ffb0', flir: '#ffffff', noir: '#f2f2f2', cel: '#fff3d6' };
 
 const COMMON = `
 uniform sampler2D colorTexture;
@@ -56,10 +56,11 @@ void main() {
   float l = luma(src);
   vec2 p = px() * 2.0;
   float glow = (luma(texture(colorTexture, uv + vec2(p.x, 0.0)).rgb) + luma(texture(colorTexture, uv - vec2(p.x, 0.0)).rgb) + luma(texture(colorTexture, uv + vec2(0.0, p.y)).rgb) + luma(texture(colorTexture, uv - vec2(0.0, p.y)).rgb)) * 0.25;
-  l = pow(clamp(l * 1.9 + glow * 0.5, 0.0, 1.0), 0.74);
+  l = pow(clamp(l * 1.25 + glow * 0.3, 0.0, 1.0), 0.92);
+  l = l / (1.0 + l * 0.55) * 1.45;
   float n = hash(floor(uv * czm_viewport.zw / 1.5) + floor(u_time * 24.0));
   l += (n - 0.5) * 0.11;
-  vec3 c = vec3(0.10, 1.0, 0.24) * l + vec3(0.55, 0.9, 0.5) * pow(l, 5.0) * 0.5;
+  vec3 c = vec3(0.08, 0.92, 0.22) * l + vec3(0.5, 0.85, 0.45) * pow(l, 6.0) * 0.35;
   vec2 cc = (uv - 0.5) * vec2(czm_viewport.z / czm_viewport.w, 1.0);
   c *= smoothstep(0.92, 0.48, length(cc));
   c *= 0.93 + 0.07 * sin(uv.y * czm_viewport.w * 0.9);

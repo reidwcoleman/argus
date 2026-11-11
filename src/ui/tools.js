@@ -145,6 +145,7 @@ function stepText(s) {
 export async function solveRoute(a = route.a, b = route.b, mode = route.mode) {
   route.a = a; route.b = b; route.mode = mode;
   if (!a || !b) return null;
+  tab = 'route';
   clearRoute();
   route.busy = true; route.error = ''; emit('route');
   try {
@@ -153,7 +154,7 @@ export async function solveRoute(a = route.a, b = route.b, mode = route.mode) {
     if (!r) throw new Error('none');
     const pts = r.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
     route.result = { pts, dist: r.distance, dur: r.duration, steps: r.legs[0].steps.map((s) => ({ text: stepText(s), dist: s.distance })).filter((s) => s.dist > 0 || /Arrive/.test(s.text)) };
-    route.ents.push(viewer.entities.add({ polyline: { positions: carts(pts), width: 6, material: new C.PolylineGlowMaterialProperty({ color: C.Color.fromCssColorString('#6fc3ff'), glowPower: 0.18 }), clampToGround: true } }));
+    route.ents.push(viewer.entities.add({ polyline: { positions: carts(pts), width: 6, material: new C.PolylineOutlineMaterialProperty({ color: C.Color.fromCssColorString('#6fc3ff'), outlineWidth: 2, outlineColor: C.Color.fromCssColorString('#06202f') }), clampToGround: true } }));
     route.ents.push(marker(a, 'A', '#c8f55a'), marker(b, 'B', '#ff6257'));
     const bs = C.BoundingSphere.fromPoints(carts(pts)), cg = C.Cartographic.fromCartesian(bs.center);
     lookAt({ lat: C.Math.toDegrees(cg.latitude), lon: C.Math.toDegrees(cg.longitude), range: Math.max(900, bs.radius * 3), pitch: -60, duration: 1.8 });

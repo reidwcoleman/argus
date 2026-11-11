@@ -240,11 +240,10 @@ const L = defineLayer({
     if (brief) return { title: s.name, kind: 'Satellite', sub: s.cls.name };
     const cg = C.Cartographic.fromCartesian(posAt(s, Date.now()));
     const el = elements(s);
-    const [sv, su] = fmtSpeed(s.speed);
     return {
       title: s.name, kind: `Satellite · ${s.cls.name}`, sub: `NORAD ${s.id} · ${s.intl}`, color: s.cls.color, moving: true,
       range: Math.max(1.2e6, cg.height * 1.6), pitch: -30, lat: deg(cg.latitude), lon: deg(cg.longitude), alt: cg.height, sat: s.id,
-      stats: [[(cg.height / 1000).toFixed(0), 'km', 'Altitude'], [sv, su, 'Velocity'], [el.periodMin.toFixed(1), 'min', 'Period']],
+      stats: [[Math.round(cg.height / 1000).toLocaleString(), 'km', 'Altitude'], [(s.speed / 1000).toFixed(2), 'km/s', 'Velocity'], [el.periodMin >= 600 ? (el.periodMin / 60).toFixed(1) : el.periodMin.toFixed(1), el.periodMin >= 600 ? 'h' : 'min', 'Period']],
       rows: [['Inclination', el.inc.toFixed(2) + '°'], ['Apogee', Math.round(el.apo).toLocaleString() + ' km'], ['Perigee', Math.round(el.per).toLocaleString() + ' km'], ['Eccentricity', el.ecc.toFixed(5)], ['Sub-point', latlon(deg(cg.latitude), deg(cg.longitude))], ['Epoch', `Day ${s.rec.epochdays.toFixed(2)} of 20${String(s.rec.epochyr).padStart(2, '0')}`]],
       note: 'Position is computed from published orbital elements, not observed. The ring is one full orbit; the dashed line is the ground track ahead.',
     };

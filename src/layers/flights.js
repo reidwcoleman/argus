@@ -221,13 +221,14 @@ function ensureModel(o, movers) {
     orientation: new C.CallbackProperty(() => {
       const p = movers.positionOf(o);
       if (!p) return C.Quaternion.IDENTITY;
-      // Models are authored nose toward local -X, which is west at heading 0.
-      scratchHpr.heading = rad((o.hdg || 0) + 90);
+      // Models are authored nose toward glTF -X, which Cesium maps to local -Y (south at heading 0),
+      // so nose-up pitch is a negative rotation about local X ("roll" in Cesium's terms).
+      scratchHpr.heading = rad((o.hdg || 0) + 180);
       scratchHpr.pitch = 0;
       scratchHpr.roll = o.gnd ? 0 : -Math.atan2(o.vr || 0, Math.max(30, o.spd || 0)) * 0.9;
       return C.Transforms.headingPitchRollQuaternion(p, scratchHpr);
     }, false),
-    model: { uri: `/models/${file}.glb`, minimumPixelSize: 54, maximumScale: 400, scale: 1, silhouetteColor: C.Color.fromCssColorString(o.flags & 1 ? MIL : CIVIL), silhouetteSize: 0.8, colorBlendAmount: 0 },
+    model: { uri: `/models/${file}.glb`, minimumPixelSize: 44, maximumScale: 400, scale: 1, silhouetteColor: C.Color.fromCssColorString(o.flags & 1 ? MIL : CIVIL), silhouetteSize: 0.8, colorBlendAmount: 0 },
   });
   ent.argus = { L: movers.layerId, k: o.key };
   o.bb.show = false;

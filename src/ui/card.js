@@ -55,10 +55,10 @@ function refresh() {
   $('.card-head', box).innerHTML = `<div class="card-kind"><i class="dot"></i>${esc(info.kind)}</div><button class="icon-btn" data-act="close" aria-label="Close" data-tip="Deselect" data-key="Esc">${icon('x', 16)}</button><div class="card-title">${esc(info.title)}</div><div class="card-sub">${esc(info.sub || '')}</div>`;
   const ph = $('.card-photo', box);
   const p = info.photo;
-  if (p && (p.thumb || p.url) !== photoUrl) {
-    photoUrl = p.thumb || p.url;
+  if (p && (p.url || p.thumb) !== photoUrl) {
+    photoUrl = p.url || p.thumb;
     ph.hidden = false;
-    ph.innerHTML = p.video ? `<video src="${esc(p.video)}" autoplay muted loop playsinline poster="${esc(p.url)}"></video>` : `<img src="${esc(p.thumb || p.url)}" alt="" loading="lazy">`;
+    ph.innerHTML = p.video ? `<video src="${esc(p.video)}" autoplay muted loop playsinline poster="${esc(p.url)}"></video>` : `<img src="${esc(p.url || p.thumb)}" alt="" loading="lazy">`;
     ph.insertAdjacentHTML('beforeend', `<div class="cap"><span>${p.live ? '<span class="rec">LIVE</span>' : ''}</span><span>${esc(p.credit || '')}</span></div>`);
     const img = ph.querySelector('img');
     if (img) img.onerror = () => { ph.hidden = true; };
@@ -86,6 +86,6 @@ function refresh() {
   if (rosterOpen && info.lat != null) {
     const near = aircraftNear(info.lat, info.lon, 250).filter((c) => c.key !== sel.key).slice(0, 40);
     ros.hidden = !near.length;
-    ros.innerHTML = `<div class="roster-head"><span class="eyebrow">Contacts within 250 km</span><span class="eyebrow">${near.length}</span></div>` + near.map((c) => `<button class="contact" data-contact="${c.L}|${c.key}" style="--c:${c.color}"><i class="dot"></i><span class="id">${esc(c.label)}<span class="ty">${esc(c.type || '')}</span></span><span class="d">${c.ground ? 'GND' : fmtAlt(c.alt).join(' ')}</span><span class="d">${fmtDist(c.d)}</span></button>`).join('');
+    ros.innerHTML = `<div class="roster-head"><span class="eyebrow">Contacts within 250 km</span><span class="eyebrow">${near.length}</span></div>` + near.map((c) => `<button class="contact" data-contact="${c.L}|${c.key}" style="--c:${c.color}"><i class="dot"></i><span class="id">${esc(c.label)}<span class="ty">${esc(c.type || '')}</span></span><span class="d">${c.ground ? 'GND' : fmtAlt(c.alt).join(' ')}</span><span class="d">${fmtDist(c.d, true)}</span></button>`).join('');
   } else ros.hidden = true;
 }

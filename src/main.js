@@ -1,7 +1,7 @@
 // Argus boot.
-import { initViewer, resetGlobe, setTilt, northUp, camInfo } from './core/viewer.js';
+import { initViewer, resetGlobe, setTilt, northUp, camInfo, viewer, lookAt } from './core/viewer.js';
 import { state, set, on, emit, store } from './core/bus.js';
-import { initSelect, deselect, current } from './core/select.js';
+import { initSelect, deselect, current, select, currentInfo } from './core/select.js';
 import { stopMotion } from './core/motion.js';
 import { applyLink } from './core/share.js';
 import { initStyles, STYLES, setBloom } from './fx/styles.js';
@@ -29,7 +29,7 @@ import { initTools } from './ui/tools.js';
 import './ui/director.js';
 import './ui/settings.js';
 import { initCockpit } from './ui/cockpit.js';
-import { initCommand } from './ui/command.js';
+import { initCommand, ask } from './ui/command.js';
 
 const line = (t) => { const b = document.getElementById('boot-line'); if (b) b.textContent = t; };
 
@@ -59,7 +59,7 @@ async function boot() {
   if (!linked) for (const id of store.get('layers', [])) if (registry.has(id)) setLayer(id, true, { persist: false });
   requestAnimationFrame(() => document.getElementById('boot').classList.add('done'));
   if (!linked && !store.get('seen', false)) setTimeout(showLauncher, 700);
-  window.argus = { state, set, emit, registry, setLayer, camInfo };
+  window.argus = { state, set, emit, registry, setLayer, camInfo, select, ask, current, currentInfo, lookAt, get viewer() { return viewer; } };
 }
 
 function keyboard() {

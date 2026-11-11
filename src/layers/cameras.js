@@ -113,6 +113,7 @@ function drawWedges() {
     const reach = 260, pts = [];
     if (c.dir != null) { pts.push(c.lon, c.lat); for (let a = -30; a <= 30; a += 6) { const [la, lo] = dest(c.lat, c.lon, c.dir + a, reach); pts.push(lo, la); } }
     else for (let a = 0; a < 360; a += 15) { const [la, lo] = dest(c.lat, c.lon, a, 110); pts.push(lo, la); }
+    if (L.note !== 'Viewsheds are estimates, not surveyed coverage') { L.note = 'Viewsheds are estimates, not surveyed coverage'; emit('layers', 'cameras'); }
     wedges.push(viewer.entities.add({ polygon: { hierarchy: C.Cartesian3.fromDegreesArray(pts), material: C.Color.fromCssColorString(COLOR).withAlpha(c.dir != null ? 0.22 : 0.1), outline: true, outlineColor: C.Color.fromCssColorString(COLOR).withAlpha(0.7), height: 0, heightReference: C.HeightReference.CLAMP_TO_GROUND, classificationType: C.ClassificationType.BOTH } }));
   }
 }

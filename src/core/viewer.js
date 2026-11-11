@@ -124,7 +124,7 @@ export function setLabels(on) {
   if (layers.labels) { il.remove(layers.labels, true); layers.labels = null; }
   const wants = on && (state.basemap === 'satellite' || state.basemap === 'night');
   if (wants) {
-    layers.labels = il.addImageryProvider(new C.UrlTemplateImageryProvider({ url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', maximumLevel: 13 }));
+    layers.labels = il.addImageryProvider(new C.UrlTemplateImageryProvider({ url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', maximumLevel: 19 }));
     layers.labels.alpha = 0.85;
   }
   set('labels', !!on);

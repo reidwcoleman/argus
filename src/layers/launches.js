@@ -136,8 +136,7 @@ on('launch:replay', (key) => {
     const mm = Math.floor(Math.abs(st.t) / 60), ss = Math.floor(Math.abs(st.t) % 60);
     bar.querySelector('#rt').textContent = `T${st.t < 0 ? '-' : '+'}${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
     const ev = [...EVENTS].reverse().find((e) => t >= e[0]);
-    const [sv, su] = fmtSpeed(s.v);
-    bar.querySelector('#rtel').textContent = `${(s.alt / 1000).toFixed(0)} km · ${sv} ${su} · ${ev ? ev[1] : ''}`;
+    bar.querySelector('#rtel').textContent = `${(s.alt / 1000).toFixed(0)} km · ${(s.v / 1000).toFixed(2)} km/s · ${ev ? ev[1] : ''}`;
   });
   replay = { rocket, past, future, bar, off };
   lookAt({ lat: l.lat, lon: l.lon, range: 1.9e6, heading: tr.az - 70, pitch: -24, duration: 2.2 });

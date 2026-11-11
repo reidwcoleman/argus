@@ -61,9 +61,10 @@ export function fmtSpeed(ms) {
   if (state.units === 'imperial') return [Math.round(ms * 2.23694).toLocaleString(), 'mph'];
   return [Math.round(ms / 0.514444).toLocaleString(), 'kt'];
 }
-export function fmtDist(m) {
+/** Distances read in km or miles; nautical miles only where pilots expect them (pass nautical = true). */
+export function fmtDist(m, nautical = false) {
   if (!Number.isFinite(m)) return '—';
-  if (state.units === 'metric') return m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(m < 1e5 ? 1 : 0)} km`;
+  if (state.units === 'metric' || (state.units === 'aviation' && !nautical)) return m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(m < 1e5 ? 1 : 0)} km`;
   if (state.units === 'imperial') { const mi = m / 1609.344; return mi < 0.2 ? `${Math.round(m / 0.3048)} ft` : `${mi.toFixed(mi < 100 ? 1 : 0)} mi`; }
   const nm = m / 1852; return nm < 0.2 ? `${Math.round(m)} m` : `${nm.toFixed(nm < 100 ? 1 : 0)} nm`;
 }

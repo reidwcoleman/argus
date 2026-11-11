@@ -11,18 +11,18 @@ import { $, icon } from '../ui/dom.js';
 import { CITIES } from '../data/places.js';
 
 /* ------------------------------------------------------------------- wind */
-const GX = 36, GY = 17; // 10 degree grid, lon -180..170, lat -80..80
+const GX = 24, GY = 13, DX = 15, DY = 12, LAT0 = -72; // 15 x 12 degree grid, kept small to respect the free API's per-minute budget
 let grid = null, windTick = null, parts = null, lastCam = '';
 const N = 2600;
 async function loadWind() {
   const lats = [], lons = [];
-  for (let j = 0; j < GY; j++) for (let i = 0; i < GX; i++) { lats.push(-80 + j * 10); lons.push(-180 + i * 10); }
+  for (let j = 0; j < GY; j++) for (let i = 0; i < GX; i++) { lats.push(LAT0 + j * DY); lons.push(-180 + i * DX); }
   const u = new Float32Array(GX * GY), v = new Float32Array(GX * GY);
-  const CH = 153;
+  const CH = 156;
   const jobs = [];
   for (let s = 0; s < lats.length; s += CH) {
     const la = lats.slice(s, s + CH).join(','), lo = lons.slice(s, s + CH).join(',');
-    jobs.push(getJSON(`https://api.open-meteo.com/v1/gfs?latitude=${la}&longitude=${lo}&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=ms`, { timeout: 40000 }).then((d) => {
+    jobs.push(getJSON(`https://api.open-meteo.com/v1/gfs?latitude=${la}&longitude=${lo}&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=ms`, { timeout: 40000, proxy: true, ttl: 2700 }).then((d) => {
       (Array.isArray(d) ? d : [d]).forEach((p, k) => {
         const sp = p.current?.wind_speed_10m || 0, dir = ((p.current?.wind_direction_10m || 0) * Math.PI) / 180;
         u[s + k] = -sp * Math.sin(dir); v[s + k] = -sp * Math.cos(dir);
@@ -34,7 +34,7 @@ async function loadWind() {
 }
 export function windAt(lat, lon) {
   if (!grid) return null;
-  const x = (((lon + 180) % 360) + 360) % 360 / 10, y = clamp((lat + 80) / 10, 0, GY - 1.001);
+  const x = (((lon + 180) % 360) + 360) % 360 / DX, y = clamp((lat - LAT0) / DY, 0, GY - 1.001);
   const x0 = Math.floor(x) % GX, x1 = (x0 + 1) % GX, y0 = Math.floor(y), y1 = Math.min(GY - 1, y0 + 1), fx = x - Math.floor(x), fy = y - y0;
   const s = (a) => (a[y0 * GX + x0] * (1 - fx) + a[y0 * GX + x1] * fx) * (1 - fy) + (a[y1 * GX + x0] * (1 - fx) + a[y1 * GX + x1] * fx) * fy;
   const u = s(grid.u), v = s(grid.v);
@@ -120,7 +120,7 @@ function showClouds() {
     const latest = !f || obs.idx === obs.frames.length - 1;
     // Geostationary imagery lands about 40 minutes late, so step the requested time back to something that exists.
     const t = latest ? 'default' : new Date(Math.floor((f.time - 30 * 60000) / 600000) * 600000).toISOString().slice(0, 19) + 'Z';
-    for (const id of GIBS) obs.clouds.push(addOverlay(new C.UrlTemplateImageryProvider({ url: `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${id}/default/${t}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png`, maximumLevel: 6 }), { alpha: 0.5, brightness: 1.15, contrast: 1.5 }));
+    for (const id of GIBS) obs.clouds.push(addOverlay(new C.UrlTemplateImageryProvider({ url: `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${id}/default/${t}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png`, maximumLevel: 6 }), { alpha: 0.5, saturation: 0, brightness: 1.2, contrast: 1.35 }));
   }
   setTimeout(() => old.forEach(removeOverlay), 400);
 }
@@ -219,7 +219,7 @@ defineLayer({
   enable(L) {
     aq = new PointSet('airquality', { near: 3e5, nearScale: 1.5, far: 2.5e7, farScale: 0.8 });
     L.poll(async () => {
-      const d = await getJSON(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${CITIES.map((c) => c.lat).join(',')}&longitude=${CITIES.map((c) => c.lon).join(',')}&current=us_aqi,pm2_5,pm10,nitrogen_dioxide,ozone`, { timeout: 40000 });
+      const d = await getJSON(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${CITIES.map((c) => c.lat).join(',')}&longitude=${CITIES.map((c) => c.lon).join(',')}&current=us_aqi,pm2_5,pm10,nitrogen_dioxide,ozone`, { timeout: 40000, proxy: true, ttl: 1800 });
       const items = (Array.isArray(d) ? d : [d]).map((p, i) => ({ key: 'aq' + i, lat: CITIES[i].lat, lon: CITIES[i].lon, name: CITIES[i].name, where: CITIES[i].where, aqi: p.current?.us_aqi, pm25: p.current?.pm2_5, pm10: p.current?.pm10, no2: p.current?.nitrogen_dioxide, o3: p.current?.ozone })).filter((x) => x.aqi != null);
       aq.set(items, (x) => ({ color: aqiColor(x.aqi), size: 9 + Math.min(9, x.aqi / 30), alpha: 0.85 }));
       L.setCount(items.length);
@@ -278,7 +278,7 @@ registerPanel({
       body.innerHTML = `
         <div class="tuner" style="margin-top:2px">
           <span class="eyebrow">At the centre of your view</span>
-          ${here ? `<div style="display:flex;align-items:baseline;gap:10px;margin-top:10px"><span class="mono" style="font-size:34px;font-weight:500;letter-spacing:-0.04em">${Math.round(here.temperature_2m)}°</span><span style="font-size:14px;font-weight:500">${wmoText(here.weather_code)}</span></div>
+          ${here ? `<div style="display:flex;align-items:baseline;gap:10px;margin-top:10px"><span class="mono" style="font-size:34px;font-weight:500;letter-spacing:-0.04em">${Math.round(here.temperature_2m)}°C</span><span style="font-size:14px;font-weight:500">${wmoText(here.weather_code)}</span></div>
           <div class="note" style="padding:6px 0 0">Wind ${ws} ${wu} from the ${compass(here.wind_direction_10m)} · cloud ${here.cloud_cover}% · ${Math.round(here.surface_pressure)} hPa${here.precipitation ? ` · ${here.precipitation} mm rain` : ''}</div>` : '<div class="skel" style="margin:10px 0 0"></div>'}
         </div>
         <section class="group"><div class="group-head"><span class="eyebrow">Forecast</span></div>${row('wind')}

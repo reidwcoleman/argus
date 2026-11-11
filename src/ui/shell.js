@@ -127,7 +127,8 @@ function drawRail() {
   if (!railEl) return;
   railEl.innerHTML = '';
   let sep = false;
-  for (const p of panels.values()) {
+  const ORDER = ['layers', 'missions', 'weather', 'news', 'radio', 'tools', 'director', 'settings'];
+  for (const p of [...panels.values()].sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id))) {
     if (p.bottom && !sep) { railEl.appendChild(el('<hr>')); sep = true; }
     const badge = p.badge?.();
     const b = el(`<button data-tip="${p.title}" ${p.key ? `data-key="${p.key}"` : ''} data-side="right" aria-label="${p.title}" aria-pressed="${state.panel === p.id}">${icon(p.icon, 20)}${badge ? `<span class="badge">${badge}</span>` : ''}</button>`);

@@ -72,6 +72,16 @@ export function stopRadio() { audio?.pause(); playing = false; emit('radio'); }
 export const radioState = () => ({ now, playing });
 export async function radioNear(lat, lon, tag) {
   await load();
+  // Ask the directory for stations actually near the place; the bundled 750 are only the world's most popular.
+  try {
+    const d = await getJSON(`https://${HOSTS[0]}/json/stations/search?limit=25&hidebroken=true&has_geo_info=true&geo_lat=${lat.toFixed(3)}&geo_long=${lon.toFixed(3)}&geo_distance=200000&order=clickcount&reverse=true${tag ? '&tag=' + encodeURIComponent(tag.toLowerCase()) : ''}`, { timeout: 12000 });
+    const local = d.filter((s) => s.geo_lat != null && (s.url_resolved || s.url)).map((s) => ({ key: s.stationuuid, lat: +s.geo_lat, lon: +s.geo_long, name: s.name.trim().slice(0, 60), url: s.url_resolved || s.url, country: s.country, cc: s.countrycode, state: s.state, tags: (s.tags || '').split(',').filter(Boolean).slice(0, 4), codec: s.codec, bitrate: s.bitrate, home: s.homepage }));
+    if (local.length) {
+      for (const st of local) if (!stations.some((x) => x.key === st.key)) { stations.push(st); set?.add(st, () => ({ color: COLOR, size: 5.5, alpha: 0.95 })); }
+      stations.sort((a, b) => a.lon - b.lon);
+      return local.sort((a, b) => distM(lat, lon, a.lat, a.lon) - distM(lat, lon, b.lat, b.lon));
+    }
+  } catch { /* fall back to the bundled list */ }
   let list = stations;
   if (tag) { const t = tag.toLowerCase(); const f = list.filter((s) => s.tags.some((x) => x.includes(t)) || s.name.toLowerCase().includes(t)); if (f.length) list = f; }
   return [...list].sort((a, b) => distM(lat, lon, a.lat, a.lon) - distM(lat, lon, b.lat, b.lon));

@@ -62,7 +62,7 @@ function build() {
     <div class="hud-txt hud-sum" id="hud-sum"></div>
     <div class="hud-txt hud-tl" id="hud-tl"></div><div class="hud-txt hud-tr" id="hud-tr"></div>
     <div class="hud-txt hud-bl" id="hud-bl"></div><div class="hud-txt hud-br" id="hud-br"></div>
-    <div class="hud-txt hud-c" id="hud-c"></div>`;
+    `;
 }
 function tape() {
   const h = camInfo().heading, gEl = root.querySelector('#hud-tape');
@@ -89,7 +89,6 @@ function text() {
   const el = c.onGlobe ? sun(c.clat, c.clon) : 0;
   $('#hud-br').innerHTML = `<span class="dim">HDG</span> <span class="big">${String(Math.round(c.heading) % 360).padStart(3, '0')}° ${compass(c.heading)}</span><br><span class="dim">TILT</span> ${Math.round(90 + c.pitch)}°<br><span class="dim">SUN</span> ${el >= 0 ? '+' : ''}${el.toFixed(0)}° ${el > 0 ? 'DAY' : el > -6 ? 'TWILIGHT' : 'NIGHT'}`;
   $('#hud-sum').textContent = sceneSummary();
-  $('#hud-c').innerHTML = state.selected ? '' : '<span class="dim">CLICK A CONTACT TO LOCK</span>';
 }
 function sync() {
   clearInterval(timer); clearInterval(tapeTimer);

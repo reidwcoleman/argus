@@ -159,7 +159,7 @@ defineLayer({
       const items = [];
       await Promise.allSettled([
         ...GBFS.map(async ([sys, city, base]) => {
-          const [inf, st] = await Promise.all([getJSON(base + '/station_information.json', { timeout: 30000 }), getJSON(base + '/station_status.json', { timeout: 30000 })]);
+          const [inf, st] = await Promise.all([getJSON(base + '/station_information.json', { timeout: 30000, proxy: true, ttl: 3600 }), getJSON(base + '/station_status.json', { timeout: 30000, proxy: true, ttl: 60 })]);
           const status = new Map(st.data.stations.map((s) => [s.station_id, s]));
           for (const s of inf.data.stations) {
             const x = status.get(s.station_id);
