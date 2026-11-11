@@ -5,7 +5,7 @@ import http from 'node:http';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
-import { cameraMesh, cameraHosts } from './cameras.mjs';
+import { cameraMesh, cameraHosts, KEYED } from './cameras.mjs';
 import { createReadStream, existsSync, statSync, readFileSync, writeFileSync } from 'node:fs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -337,7 +337,12 @@ async function api(req, res, url) {
       if (!/^[0-9a-f]{6}$/.test(hex)) return fail(res, 400, 'bad hex');
       return send(res, await cached(`fl:t:${hex}`, 120000, () => flightTrack(hex)));
     }
-    if (p === '/api/cameras') return send(res, await cached('cameras', 30 * 60000, cameraMesh));
+    if (p === '/api/cameras') return send(res, await cached('cameras', 30 * 60000, () => cameraMesh(readKeys().cams || {})));
+    if (p === '/api/cameras/keyed') {
+      // Which key-gated networks exist and which already have a key. The keys themselves never leave the server.
+      const have = readKeys().cams || {};
+      return send(res, json(Object.entries(KEYED).map(([code, [name, host, region]]) => ({ code, name, region, signup: `https://${host}/developers/doc`, saved: !!have[code] }))));
+    }
     if (p === '/api/fires') return send(res, await cached('fires', 30 * 60000, fires));
     if (p === '/api/gnss') return send(res, await cached('gnss', 6 * 3600000, gnss));
     if (p === '/api/news') return send(res, await cached('news', 12 * 60000, news));
@@ -349,6 +354,14 @@ async function api(req, res, url) {
       const body = JSON.parse(raw || '{}');
       const keys = readKeys();
       if (typeof body.aisstream === 'string') keys.aisstream = body.aisstream.trim();
+      if (body.cams && typeof body.cams === 'object') {
+        keys.cams ||= {};
+        for (const [code, v] of Object.entries(body.cams)) {
+          if (!KEYED[code] || typeof v !== 'string') continue;
+          if (v.trim()) keys.cams[code] = v.trim().slice(0, 200); else delete keys.cams[code];
+        }
+        cache.delete('cameras'); // rebuild the mesh with the new networks
+      }
       writeFileSync(KEYFILE, JSON.stringify(keys), { mode: 0o600 });
       if (ais.ws) { try { ais.ws.close(); } catch { /* ignore */ } ais.ws = null; }
       ais.key = ''; startAis();

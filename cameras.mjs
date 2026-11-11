@@ -125,13 +125,39 @@ const SOURCES = {
   }],
 };
 
+/**
+ * Road agencies on the shared "511" platform publish cameras through one API, but each wants its own
+ * free developer key (register on the site, then request a key). A network joins the mesh once its key is saved.
+ */
+export const KEYED = {
+  on: ['Ontario 511', '511on.ca', 'Ontario'], ab: ['511 Alberta', '511.alberta.ca', 'Alberta'], mb: ['Manitoba 511', 'www.manitoba511.ca', 'Manitoba'],
+  nb: ['New Brunswick 511', '511.gnb.ca', 'New Brunswick'], nl: ['511 Newfoundland and Labrador', '511nl.ca', 'Newfoundland and Labrador'], yt: ['511 Yukon', '511yukon.ca', 'Yukon'],
+  ga: ['Georgia 511', '511ga.org', 'Georgia'], az: ['Arizona 511', 'www.az511.com', 'Arizona'], ut: ['UDOT Traffic', 'www.udottraffic.utah.gov', 'Utah'],
+  nv: ['Nevada Roads', 'www.nvroads.com', 'Nevada'], wi: ['511 Wisconsin', '511wi.gov', 'Wisconsin'], la: ['511 Louisiana', 'www.511la.org', 'Louisiana'],
+  id: ['Idaho 511', '511.idaho.gov', 'Idaho'], ak: ['511 Alaska', '511.alaska.gov', 'Alaska'], ct: ['CT Roads', 'ctroads.org', 'Connecticut'],
+};
+const keyed = (host, region, key) => async (add) => {
+  const list = await j(`https://${host}/api/v2/get/cameras?key=${encodeURIComponent(key)}&format=json`, 45000);
+  for (const c of Array.isArray(list) ? list : []) {
+    // The platform has shipped two shapes over time: one image per record, or a Views array.
+    const views = Array.isArray(c.Views) && c.Views.length ? c.Views : [c];
+    views.forEach((v, i) => {
+      if (/disabled|offline/i.test(v.Status || c.Status || '')) return;
+      const name = [c.Location || c.Name || c.Roadway || c.RoadwayName, views.length > 1 ? v.Description : ''].filter(Boolean).join(' · ');
+      add({ id: `${c.Id ?? c.ID ?? c.SourceId}_${v.Id ?? i}`, lat: c.Latitude, lon: c.Longitude, name, place: region, img: v.Url || c.Url, dir: dir(c.Direction) });
+    });
+  }
+};
+
 /** Hosts that serve camera frames, so the image proxy can relay them for the in-world monitor. */
 export const cameraHosts = new Set();
 const publicHost = (h) => /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(h) && !/^(localhost|.*\.local|.*\.internal)$/i.test(h);
 
-export async function cameraMesh() {
+export async function cameraMesh(keys = {}) {
   const sources = [], rows = [], failed = [];
-  await Promise.allSettled(Object.entries(SOURCES).map(async ([code, [name, load]]) => {
+  const all = { ...SOURCES };
+  for (const [code, [name, host, region]] of Object.entries(KEYED)) if (keys[code]) all[code] = [name, keyed(host, region, keys[code])];
+  await Promise.allSettled(Object.entries(all).map(async ([code, [name, load]]) => {
     const mine = [], seen = new Set();
     const add = (c) => {
       const lat = +c.lat, lon = +c.lon;
