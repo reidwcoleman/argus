@@ -1,6 +1,6 @@
 // Utilities: a whiteboard over the real world (areas, lines, pins, measurements), street-following
 // directions you can fly, and file import.
-import { C, viewer, scene, camera, lookAt, camInfo } from '../core/viewer.js';
+import { C, viewer, scene, camera, lookAt, camInfo, groundNow } from '../core/viewer.js';
 import { state, set, on, emit, store } from '../core/bus.js';
 import { registerPanel, refreshPanel } from './shell.js';
 import { el, $, icon, toast } from './dom.js';
@@ -174,7 +174,7 @@ export function flyRoute() {
   for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + distM(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]));
   const total = cum[cum.length - 1], dur = Math.max(14, Math.min(60, total / 60)) * 1000, t0 = performance.now();
   const range = Math.max(260, Math.min(2600, total / 14));
-  let hdg = bearing(pts[0][0], pts[0][1], pts[1][0], pts[1][1]), i = 0;
+  let hdg = bearing(pts[0][0], pts[0][1], pts[1][0], pts[1][1]), i = 0, gh = groundNow(pts[0][0], pts[0][1]);
   const at = (s) => { while (i < cum.length - 2 && cum[i + 1] < s) i++; const f = (s - cum[i]) / Math.max(1, cum[i + 1] - cum[i]); return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * f, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * f]; };
   viewer.trackedEntity = undefined;
   const off = scene.preUpdate.addEventListener(() => {
@@ -184,7 +184,8 @@ export function flyRoute() {
     const s = u * total, here = at(s), j = i, ahead = at(Math.min(total, s + range * 0.9));
     i = j;
     if (distM(here[0], here[1], ahead[0], ahead[1]) > 2) hdg = angLerp(hdg, bearing(here[0], here[1], ahead[0], ahead[1]), 0.045);
-    camera.lookAt(C.Cartesian3.fromDegrees(here[1], here[0], 0), new C.HeadingPitchRange(C.Math.toRadians(hdg), C.Math.toRadians(-24), range));
+    gh += (groundNow(here[0], here[1]) - gh) * 0.06;
+    camera.lookAt(C.Cartesian3.fromDegrees(here[1], here[0], gh), new C.HeadingPitchRange(C.Math.toRadians(hdg), C.Math.toRadians(-24), range));
   });
   flying = { off };
   const cancel = () => stopFly();

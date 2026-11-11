@@ -100,6 +100,7 @@ function stopReplay() {
   replay.off();
   viewer.entities.remove(replay.rocket); viewer.entities.remove(replay.past); viewer.entities.remove(replay.future);
   replay.bar.remove();
+  document.body.classList.remove('replaying');
   replay = null;
 }
 on('launch:replay', (key) => {
@@ -111,7 +112,7 @@ on('launch:replay', (key) => {
   const rocket = viewer.entities.add({ position: new C.CallbackPositionProperty(() => sample(tr, Math.max(0, st.t)).cart, false), billboard: { image: glyph('rocket', '#ffffff', 34), width: 30, height: 30, disableDepthTestDistance: Number.POSITIVE_INFINITY }, point: { pixelSize: 1, color: C.Color.TRANSPARENT } });
   const past = viewer.entities.add({ polyline: { positions: new C.CallbackProperty(() => { const s = sample(tr, Math.max(0, st.t)); return [...tr.pts.slice(0, s.i + 1).map((p) => p.cart), s.cart]; }, false), width: 3, arcType: C.ArcType.NONE, material: new C.PolylineGlowMaterialProperty({ color: C.Color.fromCssColorString('#ffb347'), glowPower: 0.22 }) } });
   const future = viewer.entities.add({ polyline: { positions: tr.pts.map((p) => p.cart), width: 1.4, arcType: C.ArcType.NONE, material: new C.PolylineDashMaterialProperty({ color: C.Color.WHITE.withAlpha(0.45), dashLength: 14 }) } });
-  const bar = el(`<div class="caption surface" style="top:auto;bottom:76px;gap:14px;max-width:min(860px,94vw)">
+  const bar = el(`<div class="caption surface replay-bar" style="top:auto;bottom:76px;gap:14px;max-width:min(860px,94vw);flex-wrap:wrap;justify-content:center">
     <button class="icon-btn" data-a="play" aria-label="Play or pause">${icon('pause', 16)}</button>
     <span class="mono" id="rt" style="min-width:74px">T-00:08</span>
     <input type="range" min="-8" max="${tr.T + 420}" step="1" value="-8" style="width:220px" aria-label="Scrub ascent">
@@ -120,6 +121,7 @@ on('launch:replay', (key) => {
     <span class="tag est">Reconstructed estimate</span>
     <button class="icon-btn" data-a="x" aria-label="Close replay">${icon('x', 16)}</button></div>`);
   ui().appendChild(bar);
+  document.body.classList.add('replaying');
   const range = bar.querySelector('input');
   bar.addEventListener('click', (e) => {
     const a = e.target.closest('[data-a]')?.dataset.a, s = e.target.closest('[data-s]')?.dataset.s;

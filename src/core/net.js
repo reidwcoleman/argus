@@ -12,15 +12,16 @@ export async function getText(url, { timeout = 25000, proxy = false, ttl = 60 } 
 }
 const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
 export async function overpass(query, ttl = 600) {
-  let last;
-  for (const base of OVERPASS) {
-    try {
-      const res = await fetch(prox(base, ttl), { method: 'POST', body: 'data=' + encodeURIComponent(query), signal: AbortSignal.timeout(30000) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    } catch (e) { last = e; }
-  }
-  throw last || new Error('Overpass unavailable');
+  // The public servers are often busy, so ask all of them at once and take the first good answer.
+  const one = async (base) => {
+    const res = await fetch(prox(base, ttl), { method: 'POST', body: 'data=' + encodeURIComponent(query), signal: AbortSignal.timeout(22000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const d = await res.json();
+    if (!Array.isArray(d.elements)) throw new Error('bad payload');
+    return d;
+  };
+  try { return await Promise.any(OVERPASS.map(one)); }
+  catch { const e = new Error('Overpass timed out'); e.name = 'TimeoutError'; throw e; }
 }
 export function explain(err) {
   if (!err) return 'Unknown error';

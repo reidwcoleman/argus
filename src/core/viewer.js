@@ -215,8 +215,24 @@ export function flyTo({ lat, lon, height = 1.2e6, heading = 0, pitch = -90, dura
   });
 }
 /** Fly so that (lat, lon) is centered, viewed from `range` metres at the given heading / pitch. */
-export function lookAt({ lat, lon, alt = 0, range = 60000, heading = 0, pitch = -45, duration = 2.4 }) {
+/** Ground elevation in metres from whatever terrain is already loaded (0 when unknown). */
+export function groundNow(lat, lon) {
+  const h = scene.globe.getHeight(C.Cartographic.fromDegrees(lon, lat));
+  return Number.isFinite(h) ? h : 0;
+}
+/** Ground elevation from the terrain source itself, so a far-away target is right before we arrive. */
+export async function groundAt(lat, lon) {
+  try {
+    const pts = [C.Cartographic.fromDegrees(lon, lat)];
+    await Promise.race([C.sampleTerrainMostDetailed(viewer.terrainProvider, pts), new Promise((_, no) => setTimeout(no, 2500))]);
+    if (Number.isFinite(pts[0].height)) return pts[0].height;
+  } catch { /* flat terrain, or the sample was slow */ }
+  return groundNow(lat, lon);
+}
+export async function lookAt({ lat, lon, alt = 0, range = 60000, heading = 0, pitch = -45, duration = 2.4 }) {
   viewer.trackedEntity = undefined;
+  // Aim at the real ground, not sea level: otherwise close views of high places end up inside the terrain.
+  if (!alt && range < 300000) alt = await groundAt(lat, lon);
   return new Promise((resolve) => {
     camera.flyToBoundingSphere(new C.BoundingSphere(C.Cartesian3.fromDegrees(lon, lat, alt), 1), {
       offset: new C.HeadingPitchRange(rad(heading), rad(pitch), range), duration,

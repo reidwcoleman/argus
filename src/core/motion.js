@@ -1,5 +1,5 @@
 // Continuous camera verbs: spin the globe, orbit a point. Any pointer or wheel input stops them.
-import { C, scene, camera, camInfo, viewer } from './viewer.js';
+import { C, scene, camera, camInfo, viewer, groundNow } from './viewer.js';
 import { emit } from './bus.js';
 
 let off = null, kind = null;
@@ -34,7 +34,7 @@ export function orbit(degPerSec = 6) {
   const c = camInfo();
   if (!c.onGlobe) return false;
   viewer.trackedEntity = undefined;
-  const target = C.Cartesian3.fromDegrees(c.clon, c.clat, 0);
+  const target = C.Cartesian3.fromDegrees(c.clon, c.clat, groundNow(c.clat, c.clon));
   let h = camera.heading;
   const pitch = Math.min(camera.pitch, C.Math.toRadians(-12)), range = Math.max(200, c.range);
   begin('orbit', (dt) => { h += C.Math.toRadians(degPerSec) * dt; camera.lookAt(target, new C.HeadingPitchRange(h, pitch, range)); });

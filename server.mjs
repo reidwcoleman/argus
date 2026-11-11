@@ -20,7 +20,9 @@ async function cached(key, ttlMs, producer) {
   const hit = cache.get(key);
   const now = Date.now();
   if (hit && now - hit.at < ttlMs) return hit;
-  if (inflight.has(key)) return inflight.get(key);
+  // Recently expired: answer from cache now and refresh behind it, so one slow upstream never stalls the globe.
+  const serveStale = hit && now - hit.at < ttlMs * 3 + 30000;
+  if (inflight.has(key)) return serveStale ? hit : inflight.get(key);
   const p = (async () => {
     try {
       const v = await producer();
@@ -39,6 +41,7 @@ async function cached(key, ttlMs, producer) {
     }
   })();
   inflight.set(key, p);
+  if (serveStale) { p.catch(() => {}); return hit; }
   return p;
 }
 async function get(url, { timeout = 15000, headers = {}, binary = false } = {}) {
@@ -61,7 +64,7 @@ const ALLOW = [
   'gpsjam.org', 'firms.modaps.eosdis.nasa.gov', 'cwwp2.dot.ca.gov', 'api.tfl.gov.uk',
   'tie.digitraffic.fi', 'meri.digitraffic.fi', 'rata.digitraffic.fi', 'weathercam.digitraffic.fi',
   's3-eu-west-1.amazonaws.com', 'jamcams.tfl.gov.uk', 'api-v3.mbta.com', 'eonet.gsfc.nasa.gov',
-  'www.gdacs.org', 'll.thespacedevs.com', 'overpass-api.de', 'overpass.kumi.systems',
+  'www.gdacs.org', 'll.thespacedevs.com', 'overpass-api.de', 'cdn.deflock.me', 'overpass.kumi.systems',
   'overpass.private.coffee', 'maps.mail.ru', 'api.open-meteo.com', 'air-quality-api.open-meteo.com',
   'api.inaturalist.org', 'api.panoramax.xyz', 'panoramax.openstreetmap.fr', 'nominatim.openstreetmap.org',
   'photon.komoot.io', 'routing.openstreetmap.de', 'router.project-osrm.org', 'services3.arcgis.com',
@@ -109,27 +112,26 @@ async function flightsGlobal() {
 }
 async function flightsRegion(lat, lon, r) {
   const now = Date.now() / 1000;
-  const urls = [
-    `https://api.adsb.lol/v2/point/${lat}/${lon}/${r}`,
-    `https://opendata.adsb.fi/api/v2/lat/${lat}/lon/${lon}/dist/${r}`,
+  const sources = [
+    ['adsb.lol', `https://api.adsb.lol/v2/point/${lat}/${lon}/${r}`],
+    ['adsb.fi', `https://opendata.adsb.fi/api/v2/lat/${lat}/lon/${lon}/dist/${r}`],
   ];
-  let lastErr;
-  for (let i = 0; i < urls.length; i++) {
-    try {
-      const { body } = await get(urls[i], { timeout: 9000 });
-      const d = JSON.parse(body);
-      const list = d.ac || d.aircraft || [];
-      const rows = list.map((a) => fromAdsbx(a, now)).filter(Boolean);
-      return json({ source: i === 0 ? 'adsb.lol' : 'adsb.fi', time: now, rows });
-    } catch (e) { lastErr = e; }
-  }
-  throw lastErr;
+  // Community feeds drop out now and then: ask both, use whichever answers first.
+  return Promise.any(sources.map(async ([name, url]) => {
+    const { body } = await get(url, { timeout: 9000 });
+    const d = JSON.parse(body);
+    const rows = (d.ac || d.aircraft || []).map((a) => fromAdsbx(a, now)).filter(Boolean);
+    return json({ source: name, time: now, rows });
+  }));
 }
 async function flightsMil() {
   const now = Date.now() / 1000;
-  const { body } = await get('https://api.adsb.lol/v2/mil', { timeout: 12000 });
-  const rows = (JSON.parse(body).ac || []).map((a) => fromAdsbx(a, now, true)).filter(Boolean);
-  return json({ source: 'adsb.lol', time: now, rows });
+  return Promise.any([['adsb.lol', 'https://api.adsb.lol/v2/mil'], ['adsb.fi', 'https://opendata.adsb.fi/api/v2/mil']].map(async ([name, url]) => {
+    const { body } = await get(url, { timeout: 12000 });
+    const rows = (JSON.parse(body).ac || []).map((a) => fromAdsbx(a, now, true)).filter(Boolean);
+    if (!rows.length) throw new Error('empty');
+    return json({ source: name, time: now, rows });
+  }));
 }
 async function flightTrack(hex) {
   const { body } = await get(`https://opensky-network.org/api/tracks/all?icao24=${hex}&time=0`, { timeout: 12000 });
@@ -313,7 +315,7 @@ async function api(req, res, url) {
   const q = url.searchParams;
   try {
     if (p === '/api/health') return send(res, json({ ok: true, ais: !!ais.key, aisLive: !!ais.ws, version: '1.0.0' }));
-    if (p === '/api/flights/global') return send(res, await cached('fl:global', 10 * 60000, flightsGlobal));
+    if (p === '/api/flights/global') return send(res, await cached('fl:global', 15 * 60000, flightsGlobal));
     if (p === '/api/flights/region') {
       const lat = Math.max(-89, Math.min(89, +q.get('lat'))), lon = +q.get('lon');
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return fail(res, 400, 'lat and lon are required');

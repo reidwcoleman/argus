@@ -102,13 +102,14 @@ void main() {
 }`,
   cel: `${COMMON}
 void main() {
-  vec2 uv = v_textureCoordinates;
-  vec3 src = texture(colorTexture, uv).rgb;
+  vec2 uv = v_textureCoordinates; vec2 p = px() * 2.5;
+  // Flatten fine texture first so the ink follows shapes, not noise.
+  vec3 src = (texture(colorTexture, uv).rgb * 2.0 + texture(colorTexture, uv + vec2(p.x, p.y)).rgb + texture(colorTexture, uv + vec2(-p.x, p.y)).rgb + texture(colorTexture, uv + vec2(p.x, -p.y)).rgb + texture(colorTexture, uv - vec2(p.x, p.y)).rgb) / 6.0;
   float l = luma(src);
-  vec3 sat = mix(vec3(l), src, 1.75);
-  vec3 q = floor(pow(clamp(sat, 0.0, 1.0), vec3(0.8)) * 5.0 + 0.5) / 5.0;
-  float e = smoothstep(0.22, 0.6, sobel(uv));
-  vec3 c = mix(q, vec3(0.04, 0.03, 0.08), e);
+  vec3 sat = mix(vec3(l), src, 1.6);
+  vec3 q = floor(pow(clamp(sat * 1.15, 0.0, 1.0), vec3(0.72)) * 4.0 + 0.5) / 4.0;
+  float e = smoothstep(0.55, 1.1, sobel(uv));
+  vec3 c = mix(q, vec3(0.04, 0.03, 0.08), e * 0.85);
   out_FragColor = vec4(c, 1.0);
 }`,
 };

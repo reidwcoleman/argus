@@ -35,12 +35,22 @@ function viewBound(L, maxRange, load, capKm = 40) {
 let alpr = null;
 defineLayer({
   id: 'alpr', name: 'Mapped ALPR cameras', group: 'Cameras', color: '#ff7b6b', icon: 'scan', trust: 'static',
-  blurb: 'Licence-plate readers tagged in OpenStreetMap', source: 'OpenStreetMap (incl. DeFlock mapping)', aliases: ['alpr', 'plate readers', 'license plate readers', 'flock'],
+  blurb: 'Licence-plate readers tagged in OpenStreetMap', source: 'DeFlock · OpenStreetMap contributors', aliases: ['alpr', 'plate readers', 'license plate readers', 'flock'],
   enable(L) {
     alpr = new PointSet('alpr', { near: 2e3, nearScale: 1.3, far: 2e5, farScale: 0.6 });
+    const regions = new Map();
+    const region = (lat, lon) => {
+      const k = `${Math.floor(lat / 20) * 20}/${Math.floor(lon / 20) * 20}`;
+      if (!regions.has(k)) regions.set(k, getJSON(`https://cdn.deflock.me/regions/${k}.json`, { proxy: true, ttl: 86400, timeout: 60000 }).catch(() => { regions.delete(k); return []; }));
+      return regions.get(k);
+    };
     return viewBound(L, 120000, async (b) => {
-      const d = await overpass(`[out:json][timeout:25];node["surveillance:type"="ALPR"](${b.s},${b.w},${b.n},${b.e});out 1500;`);
-      alpr.set(d.elements.map((n) => ({ key: 'n' + n.id, lat: n.lat, lon: n.lon, t: n.tags || {} })), () => ({ shape: 'hex', color: '#ff7b6b', size: 15 }));
+      const keys = new Set(), lists = [];
+      for (const [la, lo] of [[b.s, b.w], [b.s, b.e], [b.n, b.w], [b.n, b.e]]) { const k = `${Math.floor(la / 20)}/${Math.floor(lo / 20)}`; if (!keys.has(k)) { keys.add(k); lists.push(region(la, lo)); } }
+      const items = [];
+      for (const list of await Promise.all(lists)) for (const n of list) if (n.lat >= b.s && n.lat <= b.n && n.lon >= b.w && n.lon <= b.e) items.push({ key: 'n' + n.id, lat: n.lat, lon: n.lon, t: n.tags || {} });
+      items.sort((x, y) => distM(b.lat, b.lon, x.lat, x.lon) - distM(b.lat, b.lon, y.lat, y.lon));
+      alpr.set(items.slice(0, 3000), () => ({ shape: 'hex', color: '#ff7b6b', size: 15 }));
       return alpr.size;
     });
   },
@@ -65,32 +75,22 @@ defineLayer({
 let inst = null;
 defineLayer({
   id: 'installations', name: 'Mapped installations', group: 'Infrastructure', color: '#d9a441', icon: 'shield', trust: 'static',
-  blurb: 'Military sites from community mapping', source: 'OpenStreetMap', aliases: ['installations', 'military bases', 'bases', 'military sites'],
-  enable(L) {
-    inst = new PointSet('installations', { near: 2e4, nearScale: 1.2, far: 1.5e6, farScale: 0.6 });
-    return viewBound(L, 900000, async (b) => {
-      const d = await overpass(`[out:json][timeout:25];(nwr["military"~"^(base|airfield|naval_base|barracks|range|training_area|checkpoint|bunker|office|nuclear_explosion_site)$"]["name"](${b.s},${b.w},${b.n},${b.e});way["landuse"="military"]["name"](${b.s},${b.w},${b.n},${b.e}););out center tags 600;`);
-      const seen = new Set();
-      const items = [];
-      for (const e of d.elements) {
-        const lat = e.lat ?? e.center?.lat, lon = e.lon ?? e.center?.lon, name = e.tags?.['name:en'] || e.tags?.name;
-        if (lat == null || !name || seen.has(name)) continue;
-        seen.add(name);
-        items.push({ key: e.type[0] + e.id, lat, lon, name, t: e.tags });
-      }
-      inst.set(items, () => ({ shape: 'square', color: '#d9a441', size: 13 }));
-      return items.length;
-    }, 400);
+  blurb: 'Publicly documented military sites', source: 'Wikidata (CC0)', aliases: ['installations', 'military bases', 'bases', 'military sites', 'air bases'],
+  async enable(L) {
+    inst = new PointSet('installations', { near: 2e4, nearScale: 1.3, far: 2e7, farScale: 0.55 });
+    const d = await getJSON('/data/installations.json', { timeout: 30000 });
+    inst.set(d.map((r) => ({ key: r[0], lat: r[1], lon: r[2], name: r[3], type: r[4], country: r[5] })), () => ({ shape: 'square', color: '#d9a441', size: 11 }));
+    L.setCount(d.length);
   },
-  disable(L) { L._off?.(); inst?.destroy(); inst = null; },
+  disable() { inst?.destroy(); inst = null; },
   contacts: () => (inst ? [...inst.values()].map((a) => ({ key: a.key, L: 'installations', label: a.name.slice(0, 22), lat: a.lat, lon: a.lon, alt: 0, color: '#d9a441' })) : []),
   position: (k, r) => inst?.position(k, r) || null,
   info(k, brief) {
     const a = inst?.get(k);
     if (!a) return null;
-    const type = (a.t.military || a.t.landuse || 'site').replace(/_/g, ' ');
+    const type = a.type.charAt(0).toUpperCase() + a.type.slice(1);
     if (brief) return { title: a.name, kind: 'Mapped installation', sub: type };
-    return { title: a.name, kind: 'Mapped installation', sub: type.charAt(0).toUpperCase() + type.slice(1), color: '#d9a441', range: 9000, pitch: -45, lat: a.lat, lon: a.lon, rows: [['Operator', esc(a.t.operator || 'Not tagged')], ['Branch', esc(a.t.military_service || a.t['military:service'] || 'Not tagged')], ['Position', latlon(a.lat, a.lon)]], note: 'Community-mapped public context, incomplete by nature.' };
+    return { title: a.name, kind: 'Mapped installation', sub: [type, a.country].filter(Boolean).join(' · '), color: '#d9a441', range: 9000, pitch: -45, lat: a.lat, lon: a.lon, rows: [['Country', esc(a.country || 'Not recorded')], ['Position', latlon(a.lat, a.lon)]], link: `https://www.wikidata.org/wiki/${a.key}`, linkLabel: 'Wikidata', note: 'From public reference data. Incomplete, and some sites are historic.' };
   },
 });
 

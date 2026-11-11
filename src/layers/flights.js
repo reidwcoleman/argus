@@ -87,7 +87,7 @@ function makeInfo(layer, movers) {
     const owner = m.aircraft?.registered_owner || r?.airline?.name;
     if (owner) rows.push(['Operator', owner]);
     if (o.country) rows.push(['Registered in', o.country]);
-    rows.push(['ICAO address', key.toUpperCase()], ['Position', latlon(o.dlat, o.dlon)], ['Last fix', `${ago(o.ts)} · ${o.src === 'global' ? 'OpenSky' : 'adsb.lol'}`]);
+    rows.push(['ICAO address', key.toUpperCase()], ['Position', latlon(o.dlat, o.dlon)], ['Last fix', `${ago(o.ts)} · ${o.src === 'global' ? 'OpenSky' : 'community ADS-B'}`]);
     return {
       title, kind, sub, color: emerg ? EMERG : mil ? MIL : CIVIL, moving: true, range: o.gnd ? 2500 : 18000, pitch: -28,
       lat: o.dlat, lon: o.dlon, alt: o.dalt, hdg: o.hdg, spd: o.spd, cockpit: !o.gnd || o.spd > 5,
@@ -177,7 +177,7 @@ async function regional(L) {
 let milM = null;
 const military = defineLayer({
   id: 'military', name: 'Military flights', group: 'Movement', color: MIL, icon: 'shield', trust: 'live',
-  blurb: 'ADS-B military traffic, emergencies in red', source: 'adsb.lol', aliases: ['military', 'mil', 'military flights', 'military aircraft'],
+  blurb: 'ADS-B military traffic, emergencies in red', source: 'adsb.lol · adsb.fi', aliases: ['military', 'mil', 'military flights', 'military aircraft'],
   trailColor: MIL,
   enable(L) {
     milM = new Movers({ layerId: 'military', iconFor, maxExtrap: 90 });

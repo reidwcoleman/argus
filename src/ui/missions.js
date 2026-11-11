@@ -126,8 +126,8 @@ const FIELD = [
     toast(`${heli.label}: the trail fills in with real track history when the source has it.`);
   } },
   { id: 'boneyard', name: 'Walk the boneyard', need: 'Satellite map', blurb: 'Rows of retired airframes in the Arizona desert, from regional view to the ramp.', async run() {
-    await lookAt({ lat: 32.16, lon: -110.85, range: 60000, pitch: -60, duration: 2.4 });
-    await lookAt({ lat: 32.1665, lon: -110.8557, range: 2600, pitch: -42, heading: 30, duration: 4 });
+    await lookAt({ lat: 32.155, lon: -110.835, range: 60000, pitch: -60, duration: 2.4 });
+    await lookAt({ lat: 32.1512, lon: -110.8262, range: 3200, pitch: -42, heading: 30, duration: 4 });
     orbit(4);
   } },
   { id: 'gorges', name: 'Orbit Three Gorges', need: 'Dams', blurb: 'Sweep the largest dam on Earth, then find 703 more.', async run() {
