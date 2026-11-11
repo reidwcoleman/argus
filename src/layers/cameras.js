@@ -2,7 +2,7 @@
 import { C, viewer, scene, camInfo, lookAt } from '../core/viewer.js';
 import { defineLayer, setLayer, registry } from './base.js';
 import { PointSet } from './points.js';
-import { getJSON, prox } from '../core/net.js';
+import { getJSON, prox, HOSTED } from '../core/net.js';
 import { on, emit, state, set } from '../core/bus.js';
 import { latlon, distM, fmtDist, dest, esc } from '../core/geo.js';
 import { select, current } from '../core/select.js';
@@ -16,6 +16,7 @@ const sources = {};
 async function loadMesh(add, L) {
   const d = await getJSON('/api/cameras', { timeout: 90000 });
   for (const r of d.rows) add({ key: r[0], lat: r[1], lon: r[2], name: r[3], src: d.sources[r[4]].name, place: r[5], img: r[6], hls: r[7], dir: r[8], video: r[9] || '' });
+  for (const k of Object.keys(sources)) delete sources[k];
   for (const s of d.sources) sources[s.name] = s.count;
   meshInfo = { networks: d.sources.length, failed: d.failed.map((f) => f.name) };
 }
@@ -58,7 +59,7 @@ const L = defineLayer({
 const frame = (c, bust) => {
   if (!c.img) return '';
   const u = c.img + (c.img.includes('?') ? '&' : '?') + 't=' + bust;
-  return /^http:|\/\/www\.ndbc\.noaa\.gov\//.test(u) ? prox(u, 15, true) : u;
+  return !HOSTED && /^http:|\/\/www\.ndbc\.noaa\.gov\//.test(u) ? prox(u, 15, true) : u;
 };
 
 function nearby(lat, lon, max = 12, maxM = 80000) {
@@ -99,7 +100,8 @@ on('camera:end', () => { if (L.enabled && state.coverage === 'viewshed') drawWed
 function closeMonitor() { clearInterval(monitorTimer); if (monitor) viewer.entities.remove(monitor); monitor = null; }
 function openMonitor(c) {
   closeMonitor();
-  if (!c || !c.img) return;
+  // The floating in-world frame needs the local relay (operators do not allow cross-site texture use).
+  if (!c || !c.img || HOSTED) return;
   const url = () => prox(c.img + (c.img.includes('?') ? '&' : '?') + 't=' + Math.floor(Date.now() / 20000), 15, true);
   monitor = viewer.entities.add({
     position: C.Cartesian3.fromDegrees(c.lon, c.lat, 0),

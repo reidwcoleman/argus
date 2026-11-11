@@ -408,7 +408,10 @@ function serveStatic(req, res, url) {
 }
 
 let vite = null;
-if (!PROD) {
+const API_ONLY = process.env.ARGUS_API_ONLY === '1'; // the snapshot job needs the feeds, not the site
+if (API_ONLY) {
+  /* no front end to serve */
+} else if (!PROD) {
   const { createServer } = await import('vite');
   vite = await createServer({ root: ROOT, server: { middlewareMode: true, hmr: { port: PORT + 1 } }, appType: 'spa', logLevel: 'warn' });
 } else if (!existsSync(path.join(ROOT, 'dist/index.html'))) {

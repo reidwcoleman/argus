@@ -1,6 +1,6 @@
 // Layer registry. Every data layer is one module that registers itself here.
 import { emit, store } from '../core/bus.js';
-import { explain } from '../core/net.js';
+import { explain, HOSTED } from '../core/net.js';
 
 export const registry = new Map();
 export const GROUPS = ['Movement', 'Space', 'Cameras', 'Infrastructure', 'Events', 'Weather', 'Audio'];
@@ -11,7 +11,10 @@ export const trustLabel = (t) => TRUST[t] || '';
  * def: { id, name, group, color, icon, blurb, source, trust, viewBound?, minZoomKm?,
  *        enable(L), disable(L), contacts?(), info?(key), position?(key), trail?(key), subs?, setSub?, onView? }
  */
+// On the hosted build these come from a snapshot refreshed every 20 minutes, so they must not claim to be live.
+const SNAPSHOT_FED = ['flights', 'military', 'news'];
 export function defineLayer(def) {
+  if (HOSTED && SNAPSHOT_FED.includes(def.id) && def.trust === 'live') def = { ...def, trust: 'delayed' };
   const L = {
     enabled: false, status: 'off', note: '', count: 0, updatedAt: 0, timers: [],
     setStatus(status, note = '') { L.status = status; L.note = note; if (status === 'live') L.updatedAt = Date.now(); emit('layers', L.id); },

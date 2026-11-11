@@ -12,8 +12,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/src/styles/app.css" />
-    <script>window.CESIUM_BASE_URL = '/cesium/';</script>
-    <script src="/cesium/Cesium.js"></script>
+    <script>window.CESIUM_BASE_URL = new URL('cesium/', document.baseURI).href;</script>
+    <script src="./cesium/Cesium.js"></script>
   </head>
   <body>
     <div id="globe" aria-label="Interactive globe"></div>

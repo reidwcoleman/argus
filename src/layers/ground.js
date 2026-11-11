@@ -3,7 +3,7 @@
 import { C, viewer, scene, camInfo, viewRadiusM } from '../core/viewer.js';
 import { defineLayer, registry } from './base.js';
 import { PointSet } from './points.js';
-import { getJSON, overpass, prox } from '../core/net.js';
+import { getJSON, overpass, prox, HOSTED, localOnly } from '../core/net.js';
 import { on, emit } from '../core/bus.js';
 import { latlon, distM, ago, clamp, esc, fmtDist } from '../core/geo.js';
 import { el, ui, icon, toast } from '../ui/dom.js';
@@ -37,6 +37,7 @@ defineLayer({
   id: 'alpr', name: 'Mapped ALPR cameras', group: 'Cameras', color: '#ff7b6b', icon: 'scan', trust: 'static',
   blurb: 'Licence-plate readers tagged in OpenStreetMap', source: 'DeFlock · OpenStreetMap contributors', aliases: ['alpr', 'plate readers', 'license plate readers', 'flock'],
   enable(L) {
+    if (HOSTED) throw localOnly(); // the DeFlock files do not allow cross-site reads
     alpr = new PointSet('alpr', { near: 2e3, nearScale: 1.3, far: 2e5, farScale: 0.6 });
     const regions = new Map();
     const region = (lat, lon) => {

@@ -6,6 +6,7 @@ import { BASEMAPS, setBasemap, setLabels, setLighting, keys } from '../core/view
 import { setBloom } from '../fx/styles.js';
 import { registry, setLayer } from '../layers/base.js';
 import { esc } from '../core/geo.js';
+import { asset, HOSTED } from '../core/net.js';
 import { cameraNetworks } from '../layers/cameras.js';
 
 const KEYS = [
@@ -47,11 +48,11 @@ registerPanel({
           <div style="padding:8px"><button class="btn primary wide" data-a="save">${icon('bolt', 15)}Save keys</button></div></section>
         <section class="group"><div class="group-head"><span class="eyebrow">More camera networks</span><span class="eyebrow">${keyed.filter((x) => x.saved).length} of ${keyed.length} added</span></div>
           <p class="note" style="padding-bottom:8px">These road agencies publish their cameras free, but each asks you to register on its site and request a developer key. Paste a key here and that network joins the camera layer. Keys are stored in a local file on this machine only.</p>
-          ${keyed.length ? keyed.map((x) => `<div class="field"><label>${esc(x.name)} <span>${x.saved ? 'added' : esc(x.region)}</span></label><div style="display:flex;gap:6px"><input class="input mono" type="password" autocomplete="off" spellcheck="false" data-cam="${x.code}" placeholder="${x.saved ? 'Key saved. Paste a new one to replace it' : 'Paste developer key'}"><a class="btn" href="${esc(x.signup)}" target="_blank" rel="noopener" data-tip="Get a key">${icon('external', 15)}</a>${x.saved ? `<button class="icon-btn" data-camdel="${x.code}" data-tip="Remove key" style="height:36px">${icon('trash', 15)}</button>` : ''}</div></div>`).join('') : '<p class="note">Start Argus with npm start to manage camera keys.</p>'}
+          ${keyed.length ? keyed.map((x) => `<div class="field"><label>${esc(x.name)} <span>${x.saved ? 'added' : esc(x.region)}</span></label><div style="display:flex;gap:6px"><input class="input mono" type="password" autocomplete="off" spellcheck="false" data-cam="${x.code}" placeholder="${x.saved ? 'Key saved. Paste a new one to replace it' : 'Paste developer key'}"><a class="btn" href="${esc(x.signup)}" target="_blank" rel="noopener" data-tip="Get a key">${icon('external', 15)}</a>${x.saved ? `<button class="icon-btn" data-camdel="${x.code}" data-tip="Remove key" style="height:36px">${icon('trash', 15)}</button>` : ''}</div></div>`).join('') : '<p class="note">Camera keys are saved by the Argus app running on your own machine, so they are not available on this hosted page.</p>'}
           ${keyed.length ? `<div style="padding:8px"><button class="btn primary wide" data-a="savecams">${icon('cctv', 15)}Save camera keys</button></div>` : ''}</section>
         <section class="group"><div class="group-head"><span class="eyebrow">Keyboard</span></div><dl class="kv" style="padding:4px 8px">${SHORTCUTS.map(([a, b]) => `<dt><span class="kbd">${a}</span></dt><dd>${b}</dd>`).join('')}</dl></section>
         <section class="group"><div class="group-head"><span class="eyebrow">Data and credits</span></div>
-          <dl class="kv" style="padding:4px 8px">${[...registry.values()].map((l) => `<dt>${esc(l.name)}</dt><dd>${esc(l.source)}</dd>`).join('')}${cameraNetworks().length ? `<dt>Camera networks</dt><dd>${esc(cameraNetworks().join(' · '))}</dd>` : ''}<dt>Terrain</dt><dd>Re:Earth Terrain (Mapterhorn)</dd><dt>Aircraft models</dt><dd><a href="/models/ATTRIBUTION.md" target="_blank">CC BY 4.0 creators</a></dd><dt>Globe engine</dt><dd>CesiumJS</dd></dl>
+          <dl class="kv" style="padding:4px 8px">${[...registry.values()].map((l) => `<dt>${esc(l.name)}</dt><dd>${esc(l.source)}</dd>`).join('')}${cameraNetworks().length ? `<dt>Camera networks</dt><dd>${esc(cameraNetworks().join(' · '))}</dd>` : ''}<dt>Terrain</dt><dd>Re:Earth Terrain (Mapterhorn)</dd><dt>Aircraft models</dt><dd><a href="${asset('models/ATTRIBUTION.md')}" target="_blank">CC BY 4.0 creators</a></dd><dt>Globe engine</dt><dd>CesiumJS</dd></dl>
           <p class="note">Inspired by the open-source God's Eye View project. Argus is an independent interface over the same kind of public feeds. It is a viewer, not a surveillance tool: nothing here is classified, and some layers are simulated or estimated and say so.</p></section>`;
       body.querySelectorAll('input[type=range]').forEach(setRange);
       body.scrollTop = top;

@@ -1,6 +1,7 @@
 // Argus boot.
 import { initViewer, resetGlobe, setTilt, northUp, camInfo, viewer, lookAt } from './core/viewer.js';
 import { state, set, on, emit, store } from './core/bus.js';
+import { HOSTED } from './core/net.js';
 import { initSelect, deselect, current, select, currentInfo } from './core/select.js';
 import { stopMotion } from './core/motion.js';
 import { applyLink } from './core/share.js';
@@ -58,6 +59,7 @@ async function boot() {
   const linked = applyLink();
   if (!linked) for (const id of store.get('layers', [])) if (registry.has(id)) setLayer(id, true, { persist: false });
   requestAnimationFrame(() => document.getElementById('boot').classList.add('done'));
+  if (HOSTED) setTimeout(() => emit('toast', { text: 'Hosted preview: aircraft, news, fires and the camera list come from a snapshot refreshed about every 20 minutes. Run Argus on your own machine for second-by-second tracking.' }), 4000);
   if (!linked && !store.get('seen', false)) setTimeout(showLauncher, 700);
   window.argus = { state, set, emit, registry, setLayer, camInfo, select, ask, current, currentInfo, lookAt, get viewer() { return viewer; } };
 }

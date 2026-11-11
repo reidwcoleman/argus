@@ -3,7 +3,7 @@
 import { C, viewer, camInfo, viewRadiusM, camera } from '../core/viewer.js';
 import { defineLayer, registry } from './base.js';
 import { Movers } from './movers.js';
-import { getJSON } from '../core/net.js';
+import { getJSON, asset, HOSTED } from '../core/net.js';
 import { on, state } from '../core/bus.js';
 import { fmtAlt, fmtSpeed, compass, latlon, ago, distM, rad } from '../core/geo.js';
 import { current } from '../core/select.js';
@@ -130,9 +130,10 @@ const flights = defineLayer({
       }
       fl.prune(now - 25 * 60000);
       L.setCount(fl.size);
-      L.note = `${d.rows.length.toLocaleString()} from OpenSky`;
+      L.note = `${d.rows.length.toLocaleString()} from OpenSky${d.snap ? `, snapshot ${ago(d.snap)}, positions projected forward` : ''}`;
     }, 4 * 60000);
-    L.poll(() => regional(L), 8000);
+    // Close-range second-by-second detail comes through the local server; the hosted build has only the world snapshot.
+    if (!HOSTED) L.poll(() => regional(L), 8000);
   },
   disable() { fl?.destroy(); fl = null; },
   contacts: () => (fl ? contactsOf(fl, 'flights') : []),
@@ -180,20 +181,22 @@ const military = defineLayer({
   blurb: 'ADS-B military traffic, emergencies in red', source: 'adsb.lol · adsb.fi', aliases: ['military', 'mil', 'military flights', 'military aircraft'],
   trailColor: MIL,
   enable(L) {
-    milM = new Movers({ layerId: 'military', iconFor, maxExtrap: 90 });
+    milM = new Movers({ layerId: 'military', iconFor, maxExtrap: HOSTED ? 1500 : 90 });
     L.poll(async () => {
       const d = await getJSON('/api/flights/mil', { timeout: 15000 });
       const now = Date.now();
       for (const r of d.rows) {
-        const props = { cs: r[1], gnd: r[8], sq: r[9], flags: r[14] | 1, seen: now, src: 'region', fast: true };
+        const props = { cs: r[1], gnd: r[8], sq: r[9], flags: r[14] | 1, seen: now, src: HOSTED ? 'global' : 'region', fast: !HOSTED };
+        if (HOSTED) props.maxEx = r[8] ? 0 : 1500;
         if (r[10]) props.type = r[10];
         if (r[11]) props.reg = r[11];
         if (r[12]) props.cat = r[12];
         milM.upsert(r[0], { lat: r[2], lon: r[3], alt: r[8] ? 0 : r[4], spd: r[5], hdg: r[6], vr: r[7], ts: r[13] * 1000 }, props);
         fl?.remove(r[0]);
       }
-      milM.prune(now - 5 * 60000);
+      milM.prune(now - (HOSTED ? 45 : 5) * 60000);
       L.setCount(milM.size);
+      if (d.snap) L.note = `Snapshot ${ago(d.snap)}, positions projected forward`;
     }, 20000);
   },
   disable() { milM?.destroy(); milM = null; },
@@ -228,7 +231,7 @@ function ensureModel(o, movers) {
       scratchHpr.roll = o.gnd ? 0 : -Math.atan2(o.vr || 0, Math.max(30, o.spd || 0)) * 0.9;
       return C.Transforms.headingPitchRollQuaternion(p, scratchHpr);
     }, false),
-    model: { uri: `/models/${file}.glb`, minimumPixelSize: 44, maximumScale: 400, scale: 1, silhouetteColor: C.Color.fromCssColorString(o.flags & 1 ? MIL : CIVIL), silhouetteSize: 0.8, colorBlendAmount: 0 },
+    model: { uri: asset(`models/${file}.glb`), minimumPixelSize: 44, maximumScale: 400, scale: 1, silhouetteColor: C.Color.fromCssColorString(o.flags & 1 ? MIL : CIVIL), silhouetteSize: 0.8, colorBlendAmount: 0 },
   });
   ent.argus = { L: movers.layerId, k: o.key };
   o.bb.show = false;
