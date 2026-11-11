@@ -94,7 +94,7 @@ function makeInfo(layer, movers) {
       stats: [[av, au, o.gnd ? 'On ground' : 'Altitude'], [sv, su, 'Ground speed'], [String(Math.round(o.hdg || 0)).padStart(3, '0') + '°', compass(o.hdg || 0), 'Track']],
       rows,
       photo: m.aircraft?.url_photo_thumbnail ? { url: m.aircraft.url_photo, thumb: m.aircraft.url_photo_thumbnail, credit: 'airport-data.com via adsbdb' } : null,
-      note: age > 60000 ? `Position is dead-reckoned from a fix ${ago(o.ts)}. Zoom in for the fast regional feed.` : o.backfilled ? `Trail backfilled with ${o.backfilled} points of real track history.` : '',
+      note: age > 60000 ? `Position is dead-reckoned from a fix ${ago(o.ts)}. ${HOSTED ? 'This hosted page updates from a snapshot about every 20 minutes; run Argus locally for second-by-second tracking.' : 'Zoom in for the fast regional feed.'}` : o.backfilled ? `Trail backfilled with ${o.backfilled} points of real track history.` : '',
     };
   };
 }
