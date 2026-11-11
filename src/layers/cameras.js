@@ -9,58 +9,29 @@ import { select, current } from '../core/select.js';
 import { el, ui, icon, toast } from '../ui/dom.js';
 
 const COLOR = '#9be564';
-const DIR = { north: 0, northbound: 0, n: 0, east: 90, eastbound: 90, e: 90, south: 180, southbound: 180, s: 180, west: 270, westbound: 270, w: 270, northeast: 45, ne: 45, southeast: 135, se: 135, southwest: 225, sw: 225, northwest: 315, nw: 315 };
 let cams = null, wedges = [], monitor = null, monitorTimer = null, viewerEl = null, hls = null;
 const sources = {};
 
-async function loadTfl(add) {
-  const list = await getJSON('https://api.tfl.gov.uk/Place/Type/JamCam', { timeout: 40000 });
-  for (const c of list) {
-    const g = (k) => c.additionalProperties.find((p) => p.key === k)?.value;
-    if (g('available') === 'false' || !g('imageUrl')) continue;
-    add({ key: 'tfl' + c.id, lat: c.lat, lon: c.lon, name: c.commonName, src: 'Transport for London', place: 'London', img: g('imageUrl'), video: g('videoUrl'), dir: null });
-  }
+/** Every open network, gathered and normalised by the local server in one cached request. */
+async function loadMesh(add, L) {
+  const d = await getJSON('/api/cameras', { timeout: 90000 });
+  for (const r of d.rows) add({ key: r[0], lat: r[1], lon: r[2], name: r[3], src: d.sources[r[4]].name, place: r[5], img: r[6], hls: r[7], dir: r[8], video: r[9] || '' });
+  for (const s of d.sources) sources[s.name] = s.count;
+  meshInfo = { networks: d.sources.length, failed: d.failed.map((f) => f.name) };
 }
-async function loadCaltrans(add) {
-  const ds = [3, 4, 5, 6, 7, 8, 10, 11, 12, 1, 2, 9];
-  let i = 0;
-  const worker = async () => {
-    while (i < ds.length) {
-      const d = ds[i++];
-      try {
-        const j = await getJSON(`https://cwwp2.dot.ca.gov/data/d${d}/cctv/cctvStatusD${String(d).padStart(2, '0')}.json`, { timeout: 40000 });
-        for (const r of j.data) {
-          const c = r.cctv, loc = c.location, img = c.imageData?.static?.currentImageURL;
-          if (c.inService !== 'true' || !img || !+loc.latitude) continue;
-          add({ key: `ca${d}_${c.index}`, lat: +loc.latitude, lon: +loc.longitude, name: loc.locationName, src: 'Caltrans', place: `${loc.nearbyPlace || loc.county}, California`, img, hls: c.imageData.streamingVideoURL || '', dir: DIR[(loc.direction || '').toLowerCase()] ?? null, route: loc.route });
-        }
-      } catch { /* one district failing must not block the rest */ }
-    }
-  };
-  await Promise.all([worker(), worker(), worker()]);
-}
-async function loadFinland(add) {
-  const j = await getJSON('https://tie.digitraffic.fi/api/weathercam/v1/stations', { timeout: 40000 });
-  for (const f of j.features) {
-    const p = f.properties, preset = (p.presets || []).find((x) => x.inCollection) || p.presets?.[0];
-    if (!preset || p.collectionStatus === 'REMOVED_PERMANENTLY') continue;
-    add({ key: 'fi' + p.id, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], name: (p.name || '').replace(/_/g, ' '), src: 'Fintraffic', place: 'Finland', img: `https://weathercam.digitraffic.fi/${preset.id}.jpg`, presets: (p.presets || []).map((x) => x.id), dir: null });
-  }
-}
-
+let meshInfo = null;
+const note = () => `${Object.keys(sources).length} networks answering${meshInfo?.failed.length ? `, ${meshInfo.failed.length} not responding` : ''}`;
 const L = defineLayer({
   id: 'cameras', name: 'Public cameras', group: 'Cameras', color: COLOR, icon: 'cctv', trust: 'live',
-  blurb: 'Open traffic and road-weather cameras', source: 'TfL · Caltrans · Fintraffic', aliases: ['cameras', 'camera', 'cctv', 'webcams', 'traffic cameras'],
+  blurb: 'Every open traffic, weather, volcano and buoy camera', source: 'Official open camera networks, credited in Settings', aliases: ['cameras', 'camera', 'cctv', 'webcams', 'traffic cameras'],
   subs: () => [{ id: 'viewshed', name: 'Viewsheds', color: COLOR, on: state.coverage === 'viewshed' }],
   setSub(id, v) { set('coverage', v ? 'viewshed' : 'off'); emit('layers', 'cameras'); drawWedges(); },
   async enable(L) {
     cams = new PointSet('cameras', { near: 3e3, nearScale: 1.25, far: 2.5e6, farScale: 0.34 });
     const style = () => ({ shape: 'camera', color: COLOR, size: 18 });
     const add = (c) => { if (cams && !cams.get(c.key)) { cams.add(c, style); } };
-    const jobs = { London: loadTfl, California: loadCaltrans, Finland: loadFinland };
-    let ok = 0;
-    await Promise.allSettled(Object.entries(jobs).map(async ([n, fn]) => { try { await fn(add); sources[n] = true; ok++; L.setCount(cams.size); L.note = `${Object.keys(sources).join(', ')}`; emit('layers', 'cameras'); } catch (e) { console.warn('[cameras]', n, e); } }));
-    if (!ok) throw new Error('No camera network answered');
+    await loadMesh(add);
+    L.note = note();
     L.setCount(cams.size);
     drawWedges();
   },
@@ -77,13 +48,18 @@ const L = defineLayer({
     const bust = Math.floor(Date.now() / 20000);
     return {
       title: c.name, kind: 'Public camera', sub: c.place, color: COLOR, range: 900, pitch: -38, lat: c.lat, lon: c.lon, viewer: true,
-      photo: { url: frame(c, bust), video: c.video || null, live: true, credit: c.src },
+      photo: c.img ? { url: frame(c, bust), video: c.video || null, live: true, credit: c.src } : null,
       rows: [['Operator', c.src], ['Looking', c.dir != null ? ['north', 'east', 'south', 'west'][Math.round(c.dir / 90) % 4] + ' (as published)' : 'Not published'], ['Position', latlon(c.lat, c.lon)]],
-      note: 'An official public feed, refreshed every 20 seconds. The position is published; the view direction and coverage are estimates.',
+      note: c.img ? `An official public feed${c.hls || c.video ? ' with live video' : ''}. Argus re-requests the frame every 20 seconds; how often it actually changes is up to the operator.` : 'An official public feed, video only. Press View feed to watch it.',
     };
   },
 });
-const frame = (c, bust) => c.img + (c.img.includes('?') ? '&' : '?') + 't=' + bust;
+// Frames load straight from the operator. Plain-http ones, and NOAA's (which refuses some browsers), go through the local relay.
+const frame = (c, bust) => {
+  if (!c.img) return '';
+  const u = c.img + (c.img.includes('?') ? '&' : '?') + 't=' + bust;
+  return /^http:|\/\/www\.ndbc\.noaa\.gov\//.test(u) ? prox(u, 15, true) : u;
+};
 
 function nearby(lat, lon, max = 12, maxM = 80000) {
   if (!cams) return [];
@@ -123,8 +99,8 @@ on('camera:end', () => { if (L.enabled && state.coverage === 'viewshed') drawWed
 function closeMonitor() { clearInterval(monitorTimer); if (monitor) viewer.entities.remove(monitor); monitor = null; }
 function openMonitor(c) {
   closeMonitor();
-  if (!c) return;
-  const url = () => prox(frame(c, Math.floor(Date.now() / 20000)), 15, true);
+  if (!c || !c.img) return;
+  const url = () => prox(c.img + (c.img.includes('?') ? '&' : '?') + 't=' + Math.floor(Date.now() / 20000), 15, true);
   monitor = viewer.entities.add({
     position: C.Cartesian3.fromDegrees(c.lon, c.lat, 0),
     billboard: { image: url(), width: 220, height: 124, pixelOffset: new C.Cartesian2(0, -96), heightReference: C.HeightReference.CLAMP_TO_GROUND, disableDepthTestDistance: Number.POSITIVE_INFINITY, distanceDisplayCondition: new C.DistanceDisplayCondition(0, 30000), scaleByDistance: new C.NearFarScalar(500, 1.2, 30000, 0.45) },
@@ -146,19 +122,22 @@ async function openViewer(key) {
     <div class="viewer-stage"></div><div class="viewer-foot"><span>${esc(c.place)} · ${latlon(c.lat, c.lon)}</span><span>${esc(c.src)}</span></div></section>`);
   ui().appendChild(viewerEl);
   const stage = viewerEl.querySelector('.viewer-stage');
-  const still = () => { stage.innerHTML = `<img alt="Camera frame" src="${esc(frame(c, Date.now()))}">`; };
+  const still = () => { stage.innerHTML = c.img ? `<img alt="Camera frame" src="${esc(frame(c, Date.now()))}">` : `<div class="empty">${icon('alert', 26)}<b>This stream is not answering</b>The operator publishes video only for this camera, and it did not start. Try Next nearest.</div>`; };
   if (c.hls) {
     const v = document.createElement('video');
     v.muted = true; v.autoplay = true; v.playsInline = true; v.controls = true;
     stage.appendChild(v);
-    if (v.canPlayType('application/vnd.apple.mpegurl')) { v.src = c.hls; v.onerror = still; }
-    else {
-      try {
-        const { default: Hls } = await import('hls.js');
-        if (Hls.isSupported()) { hls = new Hls({ maxBufferLength: 8 }); hls.loadSource(c.hls); hls.attachMedia(v); hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) { hls.destroy(); hls = null; still(); } }); }
-        else still();
-      } catch { still(); }
-    }
+    // hls.js first: Chrome's built-in HLS support rejects several agency streams that hls.js plays fine.
+    let Hls = null;
+    try { Hls = (await import('hls.js')).default; } catch { /* fall back to the browser's own player */ }
+    if (Hls?.isSupported()) {
+      hls = new Hls({ maxBufferLength: 8 });
+      hls.loadSource(c.hls); hls.attachMedia(v);
+      hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) { console.warn('[cameras] stream failed:', d.type, d.details, d.response?.code || ''); hls?.destroy(); hls = null; still(); } });
+    } else if (v.canPlayType('application/vnd.apple.mpegurl')) { v.src = c.hls; v.onerror = still; }
+    else still();
+    // A stream can stall without ever reporting a fatal error: give it 18 seconds to show a frame.
+    setTimeout(() => { if (viewerEl && stage.contains(v) && v.readyState < 2) { hls?.destroy(); hls = null; still(); } }, 18000);
   } else if (c.video) {
     stage.innerHTML = `<video src="${esc(c.video)}" poster="${esc(c.img)}" autoplay muted loop playsinline></video>`;
     stage.firstChild.onerror = still;
@@ -186,4 +165,6 @@ on('camera:nearest', async (info) => {
   openViewer(c.key);
 });
 export { nearby as camerasNear };
+/** Names of the camera networks that answered this session, for the credits list. */
+export const cameraNetworks = () => Object.keys(sources);
 void scene; void current;

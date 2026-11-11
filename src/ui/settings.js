@@ -6,6 +6,7 @@ import { BASEMAPS, setBasemap, setLabels, setLighting, keys } from '../core/view
 import { setBloom } from '../fx/styles.js';
 import { registry } from '../layers/base.js';
 import { esc } from '../core/geo.js';
+import { cameraNetworks } from '../layers/cameras.js';
 
 const KEYS = [
   { id: 'ion', name: 'Cesium ion token', unlocks: 'Google Photorealistic 3D cities and world terrain', cost: 'Free for personal use', url: 'https://ion.cesium.com/tokens', ph: 'eyJhbGciOi…' },
@@ -37,7 +38,7 @@ registerPanel({
           <div style="padding:8px"><button class="btn primary wide" data-a="save">${icon('bolt', 15)}Save keys</button></div></section>
         <section class="group"><div class="group-head"><span class="eyebrow">Keyboard</span></div><dl class="kv" style="padding:4px 8px">${SHORTCUTS.map(([a, b]) => `<dt><span class="kbd">${a}</span></dt><dd>${b}</dd>`).join('')}</dl></section>
         <section class="group"><div class="group-head"><span class="eyebrow">Data and credits</span></div>
-          <dl class="kv" style="padding:4px 8px">${[...registry.values()].map((l) => `<dt>${esc(l.name)}</dt><dd>${esc(l.source)}</dd>`).join('')}<dt>Terrain</dt><dd>Re:Earth Terrain (Mapterhorn)</dd><dt>Aircraft models</dt><dd><a href="/models/ATTRIBUTION.md" target="_blank">CC BY 4.0 creators</a></dd><dt>Globe engine</dt><dd>CesiumJS</dd></dl>
+          <dl class="kv" style="padding:4px 8px">${[...registry.values()].map((l) => `<dt>${esc(l.name)}</dt><dd>${esc(l.source)}</dd>`).join('')}${cameraNetworks().length ? `<dt>Camera networks</dt><dd>${esc(cameraNetworks().join(' · '))}</dd>` : ''}<dt>Terrain</dt><dd>Re:Earth Terrain (Mapterhorn)</dd><dt>Aircraft models</dt><dd><a href="/models/ATTRIBUTION.md" target="_blank">CC BY 4.0 creators</a></dd><dt>Globe engine</dt><dd>CesiumJS</dd></dl>
           <p class="note">Inspired by the open-source God's Eye View project. Argus is an independent interface over the same kind of public feeds. It is a viewer, not a surveillance tool: nothing here is classified, and some layers are simulated or estimated and say so.</p></section>`;
       body.querySelectorAll('input[type=range]').forEach(setRange);
       body.scrollTop = top;

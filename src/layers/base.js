@@ -43,7 +43,7 @@ export async function setLayer(id, on, { persist = true } = {}) {
   L.enabled = on;
   if (on) {
     L.setStatus('loading');
-    try { await L.enable(L); if (L.status === 'loading') L.setStatus('live'); }
+    try { await L.enable(L); if (L.status === 'loading') L.setStatus('live', L.note); }
     catch (e) { console.warn(`[${id}] enable failed`, e); L.setStatus('error', explain(e)); }
   } else {
     for (const t of L.timers) clearInterval(t);

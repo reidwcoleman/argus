@@ -5,6 +5,7 @@ import http from 'node:http';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
+import { cameraMesh, cameraHosts } from './cameras.mjs';
 import { createReadStream, existsSync, statSync, readFileSync, writeFileSync } from 'node:fs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -301,7 +302,14 @@ function aisSnapshot() {
 
 /* --------------------------------------------------------------- handlers */
 function send(res, entry, extra = {}) {
-  res.writeHead(entry.status || 200, { 'Content-Type': entry.type, 'Cache-Control': 'no-store', 'X-Argus-Stale': entry.stale ? '1' : '0', ...extra });
+  const head = { 'Content-Type': entry.type, 'Cache-Control': 'no-store', 'X-Argus-Stale': entry.stale ? '1' : '0', ...extra };
+  // Large JSON tables (cameras, fires) are compressed once and reused.
+  if (typeof entry.body === 'string' && entry.body.length > 200000 && /gzip/.test(res.req?.headers['accept-encoding'] || '')) {
+    entry.gz ||= zlib.gzipSync(entry.body);
+    res.writeHead(entry.status || 200, { ...head, 'Content-Encoding': 'gzip' });
+    return res.end(entry.gz);
+  }
+  res.writeHead(entry.status || 200, head);
   res.end(entry.body);
 }
 function fail(res, code, msg) {
@@ -329,6 +337,7 @@ async function api(req, res, url) {
       if (!/^[0-9a-f]{6}$/.test(hex)) return fail(res, 400, 'bad hex');
       return send(res, await cached(`fl:t:${hex}`, 120000, () => flightTrack(hex)));
     }
+    if (p === '/api/cameras') return send(res, await cached('cameras', 30 * 60000, cameraMesh));
     if (p === '/api/fires') return send(res, await cached('fires', 30 * 60000, fires));
     if (p === '/api/gnss') return send(res, await cached('gnss', 6 * 3600000, gnss));
     if (p === '/api/news') return send(res, await cached('news', 12 * 60000, news));
@@ -348,7 +357,9 @@ async function api(req, res, url) {
     if (p === '/api/p') {
       const target = q.get('u');
       let u; try { u = new URL(target); } catch { return fail(res, 400, 'bad url'); }
-      if (!/^https?:$/.test(u.protocol) || !allowed(u.hostname)) return fail(res, 403, 'host not allowed');
+      // Camera frames may be relayed from any host an official camera list pointed at (GET only).
+      const camFrame = req.method === 'GET' && cameraHosts.has(u.hostname);
+      if (!/^https?:$/.test(u.protocol) || !(allowed(u.hostname) || camFrame)) return fail(res, 403, 'host not allowed');
       const ttl = Math.max(0, Math.min(86400, +q.get('ttl') || 60)) * 1000;
       const binary = q.get('b') === '1';
       const headers = {};
