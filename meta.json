@@ -1,0 +1,50 @@
+{
+ "feeds": {
+  "mil.json": {
+   "ok": true,
+   "at": 1794674403748,
+   "bytes": 10805
+  },
+  "fires.json": {
+   "ok": true,
+   "at": 1794674403748,
+   "bytes": 757310
+  },
+  "storms.json": {
+   "ok": true,
+   "at": 1794674403748,
+   "bytes": 40
+  },
+  "gnss.json": {
+   "ok": true,
+   "at": 1794674403748,
+   "bytes": 42663
+  },
+  "landing-point-geo.json": {
+   "ok": true,
+   "at": 1794674403748,
+   "bytes": 361458
+  },
+  "cable-geo.json": {
+   "ok": true,
+   "at": 1794674403748,
+   "bytes": 756011
+  },
+  "news.json": {
+   "ok": true,
+   "at": 1794674403748,
+   "bytes": 38223
+  },
+  "flights.json": {
+   "ok": true,
+   "at": 1794674403748,
+   "bytes": 1041069
+  },
+  "cameras.json": {
+   "ok": true,
+   "at": 1794674403748,
+   "bytes": 4643233
+  }
+ },
+ "updated": 1794674403748
+}
